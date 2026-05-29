@@ -36,13 +36,25 @@ export function criarCliente({ baseUrl, authHeader, tentativas = 2 }) {
     throw ultimoErro;
   }
 
+  // Formata uma Date UTC como "YYYY-MM-DDThh:mm:ss" usando getters UTC.
+  function formatarDataUTC(d, horaMin) {
+    const ano = d.getUTCFullYear();
+    const mes = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const dia = String(d.getUTCDate()).padStart(2, '0');
+    return `${ano}-${mes}-${dia}T${horaMin}`;
+  }
+
   return {
     usuarioAtual: () => req('/users/me?context=edit&_fields=id,slug'),
-    listarJunho: () => req(
-      '/agenda-reforma?status=publish,future' +
-      '&after=2026-05-31T23:59:59&before=2026-07-01T00:00:00' +
-      '&per_page=100&context=edit&_fields=id,date,status,meta._dia_agenda'
-    ),
+    listarMes: (ano, mes) => {
+      const after  = formatarDataUTC(new Date(Date.UTC(ano, mes - 1, 0)), '23:59:59');
+      const before = formatarDataUTC(new Date(Date.UTC(ano, mes, 1)), '00:00:00');
+      return req(
+        `/agenda-reforma?status=publish,future` +
+        `&after=${after}&before=${before}` +
+        `&per_page=100&context=edit&_fields=id,date,status,meta._dia_agenda`
+      );
+    },
     criar: (payload) => req('/agenda-reforma', { method: 'POST', body: payload }),
     atualizar: (id, payload) => req(`/agenda-reforma/${id}`, { method: 'POST', body: payload }),
     lerPost: (id) => req(`/agenda-reforma/${id}?context=edit&_fields=id,date,status,meta`)

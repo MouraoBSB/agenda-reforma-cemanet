@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { montarPayload, validarRegistro } from '../src/montarPayload.js';
+import { montarPayload, validarRegistro, validarMes } from '../src/montarPayload.js';
+
+const MES_JUNHO = { ano: 2026, mes: 6, mesNome: 'Junho', metaMesTitulo: 'Combater o egoísmo: indiferença e ingratidão' };
 
 const registroValido = {
   dia: 1,
@@ -22,15 +24,33 @@ test('validarRegistro acusa campos vazios e dia inválido', () => {
   assert.ok(erros.some(e => e.includes('prece')));
 });
 
+test('validarRegistro aceita dia 31', () => {
+  assert.deepEqual(validarRegistro({ ...registroValido, dia: 31 }), []);
+});
+
+test('validarMes retorna vazio para objeto válido', () => {
+  assert.deepEqual(validarMes(MES_JUNHO), []);
+});
+
+test('validarMes acusa campo faltando', () => {
+  const erros = validarMes({ ano: 2026, mes: 6, mesNome: 'Junho' });
+  assert.ok(erros.some(e => e.includes('metaMesTitulo')));
+});
+
+test('validarMes acusa mes fora do intervalo', () => {
+  const erros = validarMes({ ano: 2026, mes: 13, mesNome: 'Teste', metaMesTitulo: 'X' });
+  assert.ok(erros.some(e => e.includes('mes')));
+});
+
 test('montarPayload gera title, status e date corretos', () => {
-  const p = montarPayload(registroValido);
+  const p = montarPayload(registroValido, MES_JUNHO);
   assert.equal(p.title, '01 de Junho de 2026');
   assert.equal(p.status, 'future');
   assert.equal(p.date, '2026-06-01T00:00:00');
 });
 
 test('montarPayload preenche meta com formatos do JetEngine', () => {
-  const p = montarPayload(registroValido);
+  const p = montarPayload(registroValido, MES_JUNHO);
   assert.equal(p.meta._dia_agenda, 1780272000);
   assert.equal(p.meta._reflexao, '<p>"Se alguém te bater numa face..." (Lucas, 6: 29).</p>');
   assert.equal(p.meta.possui_meta_mes, 'true');
@@ -48,7 +68,7 @@ test('montarPayload preenche meta com formatos do JetEngine', () => {
 });
 
 test('montarPayload formata o dia 30 com timestamp correto', () => {
-  const p = montarPayload({ ...registroValido, dia: 30 });
+  const p = montarPayload({ ...registroValido, dia: 30 }, MES_JUNHO);
   assert.equal(p.title, '30 de Junho de 2026');
   assert.equal(p.date, '2026-06-30T00:00:00');
   assert.equal(p.meta._dia_agenda, 1782777600);

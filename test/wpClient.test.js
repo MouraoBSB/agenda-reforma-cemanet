@@ -42,12 +42,12 @@ test('erro 5xx faz retry e depois sucesso', async () => {
   assert.equal(chamadas.length, 2);
 });
 
-test('listarJunho monta query com intervalo e status', async () => {
+test('listarMes monta query com intervalo dinâmico e status para julho/2026', async () => {
   const chamadas = mockFetch([{ status: 200, body: [] }]);
-  await cliente.listarJunho();
+  await cliente.listarMes(2026, 7);
   assert.match(chamadas[0].url, /status=publish,future/);
-  assert.match(chamadas[0].url, /after=2026-05-31T23:59:59/);
-  assert.match(chamadas[0].url, /before=2026-07-01T00:00:00/);
+  assert.match(chamadas[0].url, /after=2026-06-30T23:59:59/);
+  assert.match(chamadas[0].url, /before=2026-08-01T00:00:00/);
 });
 
 test('atualizar envia POST para a URL do id com Authorization e Content-Type UTF-8', async () => {

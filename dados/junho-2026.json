@@ -1,8 +1,13 @@
-[
+{
+  "ano": 2026,
+  "mes": 6,
+  "mesNome": "Junho",
+  "metaMesTitulo": "Combater o egoísmo: indiferença e ingratidão",
+  "dias": [
   {
     "dia": 1,
     "reflexao": "“Se alguém te bater numa face, apresenta-lhe a outra; se alguém te tirar a capa, não o impeças de levar também a túnica.” (Lucas, 6: 29).",
-    "metaMesTexto": "“Oh! meus amigos, que de misérias, que de lágrimas, quanto tendes de fazer para secá-las todas! [...]” (Allan Kardec, O Evangelho segundo o Espiritismo, 113. ed., cap. XIII, item 13).",
+    "metaMesTexto": "“Oh! meus amigos, que de misérias, que de lágrimas, quanto tendes de fazer para secá-las todas! […]” (Allan Kardec, O Evangelho segundo o Espiritismo, 113. ed., cap. XIII, item 13).",
     "tituloMetaDia": "Combater a Indiferença",
     "metaDia": "Enternecer-se ante o sofrimento do próximo.",
     "prece": "Prece em favor dos desesperados e cansados do caminho."
@@ -10,7 +15,7 @@
   {
     "dia": 2,
     "reflexao": "“Dá a todo o que pedir; e ao que te tomar os teus bens não os reclames.” (Lucas, 6: 30).",
-    "metaMesTexto": "“[...] não procedais como esses egoístas endurecidos que se afastam dos aflitos, porque o espetáculo de suas misérias lhes perturbaria por instantes a existência álacre.” (Allan Kardec, O Evangelho segundo o Espiritismo, 113. ed., cap. XIII, item 17).",
+    "metaMesTexto": "“[…] não procedais como esses egoístas endurecidos que se afastam dos aflitos, porque o espetáculo de suas misérias lhes perturbaria por instantes a existência álacre.” (Allan Kardec, O Evangelho segundo o Espiritismo, 113. ed., cap. XIII, item 17).",
     "tituloMetaDia": "Combater a Indiferença",
     "metaDia": "Procure interessar-se pela dor alheia, levando consolo e resignação.",
     "prece": "Prece rogando amparo a todos os que perderam a esperança."
@@ -66,7 +71,7 @@
   {
     "dia": 9,
     "reflexao": "“Não julgueis e não sereis julgados; não condeneis e não sereis condenados.” (Lucas, 6: 37).",
-    "metaMesTexto": "“Diante de filhos ou parentes outros que se valem de títulos domésticos para menosprezar-te ou ferir-te, nem por isso deixe de amá-los. São eles, presentemente na Terra, quais os fizemos em outras épocas, e os defeitos que mostram não passam de resultados das lesões espirituais causadas por nós mesmos [...]” (Emmanuel/Espíritos diversos, Na era do espírito, 2. ed., p. 23).",
+    "metaMesTexto": "“Diante de filhos ou parentes outros que se valem de títulos domésticos para menosprezar-te ou ferir-te, nem por isso deixe de amá-los. São eles, presentemente na Terra, quais os fizemos em outras épocas, e os defeitos que mostram não passam de resultados das lesões espirituais causadas por nós mesmos […]” (Emmanuel/Espíritos diversos, Na era do espírito, 2. ed., p. 23).",
     "tituloMetaDia": "Combater a Indiferença no Lar",
     "metaDia": "Seja o consolo, esperança e a paz no ambiente doméstico, sobretudo para aqueles que mais necessitam.",
     "prece": "Prece pelos familiares queridos, para que tenham fé e bom ânimo."
@@ -82,7 +87,7 @@
   {
     "dia": 11,
     "reflexao": "“Dai e se vos dará e no vosso regaço será derramada uma boa medida, cheia, atestada, a extravasar.” (Lucas, 6:38).",
-    "metaMesTexto": "“[...] mas a compensação será grande quando vierdes a restituir a coragem e a esperança a um irmão infeliz que se emociona com o aperto de mão amiga [...]” (Allan Kardec, O Evangelho segundo o Espiritismo, 113. ed., cap. XIII, item 17).",
+    "metaMesTexto": "“[…] mas a compensação será grande quando vierdes a restituir a coragem e a esperança a um irmão infeliz que se emociona com o aperto de mão amiga […]” (Allan Kardec, O Evangelho segundo o Espiritismo, 113. ed., cap. XIII, item 17).",
     "tituloMetaDia": "Combater a Indiferença ao Semelhante",
     "metaDia": "Procure consolar aquele que necessita falando-lhe de Deus e da esperança.",
     "prece": "Prece pelos entristecidos e desesperançados, que se esqueceram de Deus e de sua infinita misericórdia."
@@ -109,7 +114,7 @@
     "metaMesTexto": "“Oh! compreendei quanto são deliciosas as impressões daquele que vê renascer a alegria onde, um instante antes, não via senão desespero! Compreendei quais são as vossas obrigações para com os vossos irmãos!” (Allan Kardec, O Evangelho segundo o Espiritismo, 113. ed., cap. XIII, item 11).",
     "tituloMetaDia": "Combater a Indiferença",
     "metaDia": "Levar o pão, o remédio e o agasalho ao companheiro necessitado de auxílio material.",
-    "prece": "Prece rogando o desprendimento dos bens materiais e a espiritualização dos sentimentos."
+    "prece": "Prece rogando o desprendimento dos bens materiais e a espiritualiçação dos sentimentos."
   },
   {
     "dia": 15,
@@ -162,7 +167,7 @@
   {
     "dia": 21,
     "reflexao": "“Porquanto a boca fala do que está cheio o coração.” (Lucas, 6:45)",
-    "metaMesTexto": "“A ingratidão é um dos frutos mais imediatos do egoísmo; revolta sempre os corações honestos [...]” (Allan Kardec, O Evangelho segundo o Espiritismo, 113. ed., cap. XIV, item 9).",
+    "metaMesTexto": "“A ingratidão é um dos frutos mais imediatos do egoísmo; revolta sempre os corações honestos […]” (Allan Kardec, O Evangelho segundo o Espiritismo, 113. ed., cap. XIV, item 9).",
     "tituloMetaDia": "Combater a Ingratidão",
     "metaDia": "Não esquecer a palavra gentil e atenciosa a quem te presta um serviço ou um favor.",
     "prece": "Prece rogando força e perseverança no bom combate da renovação interior."
@@ -194,14 +199,14 @@
   {
     "dia": 25,
     "reflexao": "“Acabando de dizer estas coisas ao povo, entrou em Cafarnaum. Um centurião tinha doente, quase a morrer, um servo que lhe era muito caro.” (Lucas, 7:1-2)",
-    "metaMesTexto": "“[...] raros os que já aprenderam a ser gratos àqueles que, de uma forma ou de outra, os ajudam a realizar-se.” (Rodolfo Calligaris, Páginas de Espiritismo cristão, 4. ed., p. 83).",
+    "metaMesTexto": "“[…] raros os que já aprenderam a ser gratos àqueles que, de uma forma ou de outra, os ajudam a realizar-se.” (Rodolfo Calligaris, Páginas de Espiritismo cristão, 4. ed., p. 83).",
     "tituloMetaDia": "Combater a Ingratidão",
     "metaDia": "Em todas as circunstâncias, desenvolver o calor humano do sentimento da gratidão a Deus e às pessoas.",
     "prece": "Prece rogando auxílio ao anjo da guarda para o combate ao egoísmo."
   },
   {
     "dia": 26,
-    "reflexao": "“Tendo ouvido falar de Jesus, o centurião lhe mandou suplicar por alguns anciãos judeus, que viesse curar o seu servo. Falando a Jesus, os anciãos o imploraram instantemente, dizendo: É um homem que merece lhe faças essa graça; pois que ama o nosso povo e nos edificou na sinagoga.” (Lucas, 7:3-5)",
+    "reflexao": "“Tendo ouvido falar de Jesus, o centurião lhe mandou suplicar por alguns ancíos judeus, que viesse curar o seu servo. Falando a Jesus, os ancíos o imploraram instantemente, dizendo: É um homem que merece lhe faças essa graça; pois que ama o nosso povo e nos edificou na sinagoga.” (Lucas, 7:3-5)",
     "metaMesTexto": "“A ingratidão estabelece síndromes de distúrbios comportamentais, que degeneram, a curto ou longo prazo, em problemas de alienação mental.” (Joanna Ângelis, Otimismo, 4. ed., p. 65).",
     "tituloMetaDia": "Combater a Ingratidão",
     "metaDia": "Demonstre reconhecimento e gratidão junto aos que se tornaram frios e indiferentes auxiliando-os a aquecer os sentimentos.",
@@ -239,4 +244,5 @@
     "metaDia": "Orar pelos que nos insultam e nos tratam de forma ingrata.",
     "prece": "Prece para combater a indiferença e a ingratidão."
   }
-]
+  ]
+}

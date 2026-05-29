@@ -6,21 +6,30 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { carregarConfig } from './config.js';
 import { criarCliente } from './wpClient.js';
-import { montarPayload, validarRegistro } from './montarPayload.js';
+import { montarPayload, validarRegistro, validarMes } from './montarPayload.js';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 function log(msg) { console.log(`[agenda] ${msg}`); }
 
-// Extrai o dia (1..31) da string ISO local "2026-06-DDT..." (sem timezone, sem Date).
+// Extrai o dia (1..31) e mês da string ISO local "2026-MM-DDT..." (sem timezone, sem Date).
 function diaDaData(dataIso) {
   const m = /^\d{4}-(\d{2})-(\d{2})/.exec(dataIso);
   return m ? { mes: Number(m[1]), dia: Number(m[2]) } : null;
 }
 
 async function principal() {
-  const executar = process.argv.includes('--executar');
-  const simularFlag = process.argv.includes('--simular');
+  // Determina slug do mês: primeiro argumento posicional (não flag)
+  const args = process.argv.slice(2);
+  const slugMes = args.find((a) => !a.startsWith('--'));
+  if (!slugMes) {
+    console.error('[agenda] ERRO: Informe o mês. Ex.: node src/index.js julho-2026 --simular');
+    process.exitCode = 1;
+    return;
+  }
+
+  const executar = args.includes('--executar');
+  const simularFlag = args.includes('--simular');
   if (executar && simularFlag) {
     console.error('[agenda] ERRO: use apenas uma flag por vez (--simular OU --executar).');
     process.exitCode = 1;
@@ -43,37 +52,56 @@ async function principal() {
   }
 
   // 2) Dados
-  const dados = JSON.parse(await readFile(join(RAIZ, 'dados', 'junho-2026.json'), 'utf8'));
-  const invalidos = dados.flatMap((r) => validarRegistro(r).map((msg) => `dia ${r?.dia}: ${msg}`));
+  const arquivoDados = join(RAIZ, 'dados', `${slugMes}.json`);
+  let dados;
+  try {
+    dados = JSON.parse(await readFile(arquivoDados, 'utf8'));
+  } catch (e) {
+    log(`ERRO ao carregar arquivo "${slugMes}.json": ${e.message}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  const { ano, mes, mesNome, metaMesTitulo, dias } = dados;
+  const errosMes = validarMes({ ano, mes, mesNome, metaMesTitulo });
+  if (errosMes.length) {
+    log('ERRO: metadados do mês inválidos:');
+    errosMes.forEach((m) => log(`  - ${m}`));
+    process.exitCode = 1;
+    return;
+  }
+
+  const invalidos = dias.flatMap((r) => validarRegistro(r).map((msg) => `dia ${r?.dia}: ${msg}`));
   if (invalidos.length) {
     log('ERRO: dados inválidos:');
     invalidos.forEach((m) => log(`  - ${m}`));
     process.exitCode = 1;
     return;
   }
-  log(`Carregados ${dados.length} dias de junho/2026.`);
+  log(`Carregados ${dias.length} dias de ${mesNome}/${ano}.`);
 
-  // 3) Idempotência: dias de junho já existentes com estado de completude
-  const existentes = await cliente.listarJunho();
+  // 3) Idempotência: dias do mês já existentes
+  const existentes = await cliente.listarMes(ano, mes);
   // mapa: dia -> { id, completo }
   const mapaExistentes = new Map();
   for (const p of existentes) {
     const d = diaDaData(p.date);
-    if (d && d.mes === 6) {
+    if (d && d.mes === mes) {
       mapaExistentes.set(d.dia, { id: p.id, completo: Number(p.meta?._dia_agenda) > 0 });
     }
   }
   if (mapaExistentes.size) {
     const completos = [...mapaExistentes.values()].filter((v) => v.completo).length;
     const incompletos = mapaExistentes.size - completos;
-    log(`Já existem ${mapaExistentes.size} dia(s) de junho: ${completos} completo(s), ${incompletos} incompleto(s).`);
+    log(`Já existem ${mapaExistentes.size} dia(s) de ${mesNome}: ${completos} completo(s), ${incompletos} incompleto(s).`);
   }
 
   // 4) Processar cada dia
+  const mesInfo = { ano, mes, mesNome, metaMesTitulo };
   const resumo = { criados: [], completados: [], pulados: [], erros: [] };
-  for (const r of dados) {
+  for (const r of dias) {
     const existente = mapaExistentes.get(r.dia);
-    const payload = montarPayload(r);
+    const payload = montarPayload(r, mesInfo);
 
     if (!existente) {
       // Dia não existe: criar
@@ -122,7 +150,7 @@ async function principal() {
     }
   }
 
-  // 6) Resumo
+  // 5) Resumo
   log('===== RESUMO =====');
   log(`Criados${simular ? ' (simulados)' : ''}: ${resumo.criados.length} (${resumo.criados.join(', ') || '-'})`);
   log(`Completados${simular ? ' (simulados)' : ''}: ${resumo.completados.length} (${resumo.completados.join(', ') || '-'})`);
