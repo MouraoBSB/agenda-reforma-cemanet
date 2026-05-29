@@ -53,43 +53,80 @@ async function principal() {
   }
   log(`Carregados ${dados.length} dias de junho/2026.`);
 
-  // 3) Idempotência: dias de junho já existentes
+  // 3) Idempotência: dias de junho já existentes com estado de completude
   const existentes = await cliente.listarJunho();
-  const diasExistentes = new Set(
-    existentes.map((p) => diaDaData(p.date)).filter((d) => d && d.mes === 6).map((d) => d.dia)
-  );
-  if (diasExistentes.size) log(`Já existem ${diasExistentes.size} dia(s) de junho: ${[...diasExistentes].sort((a,b)=>a-b).join(', ')}.`);
-
-  // 4) Criar
-  const resumo = { criados: [], pulados: [], erros: [] };
-  for (const r of dados) {
-    if (diasExistentes.has(r.dia)) { resumo.pulados.push(r.dia); log(`dia ${r.dia}: já existe, pulando.`); continue; }
-    const payload = montarPayload(r);
-    if (simular) {
-      log(`dia ${r.dia}: [simulado] criaria "${payload.title}" date=${payload.date} _dia_agenda=${payload.meta._dia_agenda} titulo_dia="${payload.meta._titulo_meta_dia}".`);
-      resumo.criados.push(r.dia);
-      continue;
+  // mapa: dia -> { id, completo }
+  const mapaExistentes = new Map();
+  for (const p of existentes) {
+    const d = diaDaData(p.date);
+    if (d && d.mes === 6) {
+      mapaExistentes.set(d.dia, { id: p.id, completo: Number(p.meta?._dia_agenda) > 0 });
     }
-    try {
-      const novo = await cliente.criar(payload);
-      // 5) validação pós-criação
-      const lido = await cliente.lerPost(novo.id);
-      const ok = lido.meta?._dia_agenda === payload.meta._dia_agenda
-              && lido.meta?._titulo_meta_dia === payload.meta._titulo_meta_dia
-              && lido.status === 'future';
-      if (!ok) throw new Error(`validação pós-criação falhou (id=${novo.id}, status=${lido.status})`);
-      resumo.criados.push(r.dia);
-      log(`dia ${r.dia}: criado e validado (id=${novo.id}).`);
-    } catch (e) {
-      resumo.erros.push({ dia: r.dia, msg: e.message });
-      log(`dia ${r.dia}: ERRO — ${e.message}`);
+  }
+  if (mapaExistentes.size) {
+    const completos = [...mapaExistentes.values()].filter((v) => v.completo).length;
+    const incompletos = mapaExistentes.size - completos;
+    log(`Já existem ${mapaExistentes.size} dia(s) de junho: ${completos} completo(s), ${incompletos} incompleto(s).`);
+  }
+
+  // 4) Processar cada dia
+  const resumo = { criados: [], completados: [], pulados: [], erros: [] };
+  for (const r of dados) {
+    const existente = mapaExistentes.get(r.dia);
+    const payload = montarPayload(r);
+
+    if (!existente) {
+      // Dia não existe: criar
+      if (simular) {
+        log(`dia ${r.dia}: [simulado] criaria "${payload.title}" date=${payload.date} _dia_agenda=${payload.meta._dia_agenda} titulo_dia="${payload.meta._titulo_meta_dia}".`);
+        resumo.criados.push(r.dia);
+        continue;
+      }
+      try {
+        const novo = await cliente.criar(payload);
+        const lido = await cliente.lerPost(novo.id);
+        const ok = lido.meta?._dia_agenda === payload.meta._dia_agenda
+                && lido.meta?._titulo_meta_dia === payload.meta._titulo_meta_dia
+                && lido.status === 'future';
+        if (!ok) throw new Error(`validação pós-criação falhou (id=${novo.id}, status=${lido.status})`);
+        resumo.criados.push(r.dia);
+        log(`dia ${r.dia}: criado e validado (id=${novo.id}).`);
+      } catch (e) {
+        resumo.erros.push({ dia: r.dia, msg: e.message });
+        log(`dia ${r.dia}: ERRO — ${e.message}`);
+      }
+    } else if (existente.completo) {
+      // Já completo: pular
+      resumo.pulados.push(r.dia);
+      log(`dia ${r.dia}: já completo, pulando.`);
+    } else {
+      // Existe mas incompleto: atualizar
+      if (simular) {
+        log(`dia ${r.dia}: [simulado] completaria id=${existente.id} _dia_agenda=${payload.meta._dia_agenda}.`);
+        resumo.completados.push(r.dia);
+        continue;
+      }
+      try {
+        const atualizado = await cliente.atualizar(existente.id, payload);
+        const lido = await cliente.lerPost(atualizado.id);
+        const ok = lido.meta?._dia_agenda === payload.meta._dia_agenda
+                && lido.meta?._titulo_meta_dia === payload.meta._titulo_meta_dia
+                && lido.status === 'future';
+        if (!ok) throw new Error(`validação pós-atualização falhou (id=${atualizado.id}, status=${lido.status})`);
+        resumo.completados.push(r.dia);
+        log(`dia ${r.dia}: completado (id=${atualizado.id}).`);
+      } catch (e) {
+        resumo.erros.push({ dia: r.dia, msg: e.message });
+        log(`dia ${r.dia}: ERRO — ${e.message}`);
+      }
     }
   }
 
   // 6) Resumo
   log('===== RESUMO =====');
   log(`Criados${simular ? ' (simulados)' : ''}: ${resumo.criados.length} (${resumo.criados.join(', ') || '-'})`);
-  log(`Pulados (já existiam): ${resumo.pulados.length} (${resumo.pulados.join(', ') || '-'})`);
+  log(`Completados${simular ? ' (simulados)' : ''}: ${resumo.completados.length} (${resumo.completados.join(', ') || '-'})`);
+  log(`Pulados (já completos): ${resumo.pulados.length} (${resumo.pulados.join(', ') || '-'})`);
   log(`Erros: ${resumo.erros.length}`);
   resumo.erros.forEach((e) => log(`  - dia ${e.dia}: ${e.msg}`));
   if (resumo.erros.length) process.exitCode = 1;

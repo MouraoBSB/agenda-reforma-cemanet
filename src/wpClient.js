@@ -41,9 +41,10 @@ export function criarCliente({ baseUrl, authHeader, tentativas = 2 }) {
     listarJunho: () => req(
       '/agenda-reforma?status=publish,future' +
       '&after=2026-05-31T23:59:59&before=2026-07-01T00:00:00' +
-      '&per_page=100&context=edit&_fields=id,date,status'
+      '&per_page=100&context=edit&_fields=id,date,status,meta._dia_agenda'
     ),
     criar: (payload) => req('/agenda-reforma', { method: 'POST', body: payload }),
+    atualizar: (id, payload) => req(`/agenda-reforma/${id}`, { method: 'POST', body: payload }),
     lerPost: (id) => req(`/agenda-reforma/${id}?context=edit&_fields=id,date,status,meta`)
   };
 }

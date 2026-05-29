@@ -49,3 +49,14 @@ test('listarJunho monta query com intervalo e status', async () => {
   assert.match(chamadas[0].url, /after=2026-05-31T23:59:59/);
   assert.match(chamadas[0].url, /before=2026-07-01T00:00:00/);
 });
+
+test('atualizar envia POST para a URL do id com Authorization e Content-Type UTF-8', async () => {
+  const chamadas = mockFetch([{ status: 200, body: { id: 123 } }]);
+  const r = await cliente.atualizar(123, { meta: { _dia_agenda: 15 } });
+  assert.equal(r.id, 123);
+  const c = chamadas[0];
+  assert.equal(c.url, 'https://x.org/wp-json/wp/v2/agenda-reforma/123');
+  assert.equal(c.opts.method, 'POST');
+  assert.equal(c.opts.headers.Authorization, 'Basic abc');
+  assert.match(c.opts.headers['Content-Type'], /charset=utf-8/);
+});
