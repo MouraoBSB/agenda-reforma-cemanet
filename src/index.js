@@ -20,7 +20,13 @@ function diaDaData(dataIso) {
 
 async function principal() {
   const executar = process.argv.includes('--executar');
-  const simular = !executar; // padrão: simulação
+  const simularFlag = process.argv.includes('--simular');
+  if (executar && simularFlag) {
+    console.error('[agenda] ERRO: use apenas uma flag por vez (--simular OU --executar).');
+    process.exitCode = 1;
+    return;
+  }
+  const simular = !executar; // padrão: simulação (sem flag ou com --simular)
   log(simular ? 'MODO SIMULAÇÃO (nada será gravado). Use --executar para gravar.' : 'MODO EXECUÇÃO (gravando no site).');
 
   const cfg = await carregarConfig();
