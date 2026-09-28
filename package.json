@@ -6,7 +6,8 @@
   "description": "Carga de conteúdo do post type Agenda Reforma Íntima (cemanet.org.br) via WordPress REST API.",
   "engines": { "node": ">=18" },
   "scripts": {
-    "test": "node --test"
+    "test": "node --test",
+    "converter": "node src/converterMes.js"
   },
   "author": "Thiago Mourão (https://github.com/MouraoBSB)"
 }

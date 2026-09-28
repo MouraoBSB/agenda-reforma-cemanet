@@ -2,3 +2,6 @@ node_modules/
 config.local.json
 package-lock.json
 /Credenciais de Acesso/
+
+# Fotos digitalizadas da agenda física (a fonte revisada é o .md do mês)
+Meses/**/*.jpg
