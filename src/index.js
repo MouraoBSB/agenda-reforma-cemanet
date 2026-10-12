@@ -5,159 +5,147 @@ import { readFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { carregarConfig } from './config.js';
-import { criarCliente } from './wpClient.js';
-import { montarPayload, validarRegistro, validarMes } from './montarPayload.js';
+import { criarCliente } from './siteClient.js';
+import { validarDocumento, CAMPOS_TEXTO_DIA } from './montarPayload.js';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
+const FLAGS = ['--simular', '--executar', '--sobrescrever'];
 
-function log(msg) { console.log(`[agenda] ${msg}`); }
+const lista = (dias) => dias.join(', ') || '-';
 
-// Extrai o dia (1..31) e mês da string ISO local "2026-MM-DDT..." (sem timezone, sem Date).
-function diaDaData(dataIso) {
-  const m = /^\d{4}-(\d{2})-(\d{2})/.exec(dataIso);
-  return m ? { mes: Number(m[1]), dia: Number(m[2]) } : null;
+// Compara o arquivo local com o mês lido do site, dia a dia.
+// Um dia é "diferente" quando o PUT o alteraria: texto, rascunho a publicar ou formatação rica a achatar.
+export function compararMes(dados, remoto) {
+  const noSite = new Map((remoto?.dias ?? []).map((d) => [d.dia, d]));
+  const resultado = { novos: [], iguais: [], diferentes: [], soNoSite: [], tituloMesDiferente: false };
+
+  for (const local of dados.dias) {
+    const atual = noSite.get(local.dia);
+    if (!atual) {
+      resultado.novos.push(local.dia);
+      continue;
+    }
+    const campos = CAMPOS_TEXTO_DIA.filter((c) => local[c].trim() !== atual[c]);
+    if (atual.status !== 'publicado') campos.push('status');
+    if (atual.formatoRico) campos.push('formatoRico');
+    if (campos.length) resultado.diferentes.push({ dia: local.dia, campos });
+    else resultado.iguais.push(local.dia);
+  }
+
+  const locais = new Set(dados.dias.map((d) => d.dia));
+  resultado.soNoSite = [...noSite.keys()].filter((dia) => !locais.has(dia));
+  const tituloNoSite = remoto?.metaMesTitulo ?? null;
+  resultado.tituloMesDiferente = tituloNoSite !== null && tituloNoSite !== dados.metaMesTitulo.trim();
+  return resultado;
+}
+
+function relatarErro(e, log) {
+  if (e.status === 401 || e.status === 403) {
+    log(`PARE: a chave foi recusada pelo site — ${e.message}`);
+    log('Avise o dono: a chave pode estar errada, vencida, revogada ou sem permissão.');
+    return;
+  }
+  log(`ERRO: ${e.message}`);
+  for (const d of e.dias ?? []) log(`  - dia ${d.dia ?? '?'} (posição ${d.posicao}), campo "${d.campo}": ${d.erro}`);
+}
+
+// Executa o fluxo completo de um mês. Retorna true quando tudo terminou como esperado.
+export async function publicarMes({ cliente, arquivoDados, executar = false, sobrescrever = false, log = console.log }) {
+  try {
+    // 1) Credencial
+    const eu = await cliente.quemSou();
+    log(`Agente: ${eu.agente.nome} — chave "${eu.chave.nome}", validade: ${eu.chave.expiraEm ?? 'sem data de expiração'}.`);
+
+    // 2) Dados locais
+    let dados;
+    try {
+      dados = JSON.parse(await readFile(arquivoDados, 'utf8'));
+    } catch (e) {
+      log(`ERRO ao carregar "${arquivoDados}": ${e.message}`);
+      return false;
+    }
+    const invalidos = validarDocumento(dados);
+    if (invalidos.length) {
+      log('ERRO: dados inválidos (nada foi enviado):');
+      invalidos.forEach((m) => log(`  - ${m}`));
+      return false;
+    }
+    const { ano, mes, mesNome } = dados;
+    log(`Carregados ${dados.dias.length} dias de ${mesNome}/${ano} — meta do mês: "${dados.metaMesTitulo}".`);
+
+    // 3) Comparação com o site
+    const comparacao = compararMes(dados, await cliente.lerMes(ano, mes));
+    const { novos, iguais, diferentes, soNoSite, tituloMesDiferente } = comparacao;
+    log(`A criar: ${novos.length} (${lista(novos)})`);
+    log(`Já iguais no site: ${iguais.length} (${lista(iguais)})`);
+    log(`Existentes com diferença: ${diferentes.length}`);
+    diferentes.forEach((d) => log(`  - dia ${d.dia}: ${d.campos.join(', ')}`));
+    if (tituloMesDiferente) log('O título da meta do mês no site é diferente do arquivo e seria trocado.');
+    if (soNoSite.length) log(`Dias que existem no site e não estão no arquivo (não são tocados): ${lista(soNoSite)}`);
+
+    if (!executar) {
+      log('SIMULAÇÃO: nada foi gravado. Use --executar para gravar.');
+      return true;
+    }
+
+    // 4) Trava do cliente: o servidor sobrescreve sempre
+    if ((diferentes.length || tituloMesDiferente) && !sobrescrever) {
+      log('BLOQUEADO: há conteúdo no site diferente do arquivo. Confira os campos acima e, se for isso mesmo, repita com --sobrescrever.');
+      return false;
+    }
+
+    // 5) Gravação do mês inteiro
+    const resposta = await cliente.gravarMes(ano, mes, dados);
+    const { criados, atualizados, inalterados } = resposta.resumo;
+    log(`Gravado: ${criados} criado(s), ${atualizados} atualizado(s), ${inalterados} inalterado(s).`);
+    resposta.dias.filter((d) => d.estado === 'atualizado').forEach((d) => log(`  - dia ${d.dia} atualizado: ${d.campos.join(', ')}`));
+    (resposta.avisos ?? []).forEach((a) => log(`AVISO do site: ${a}`));
+    let ok = true;
+    if (criados !== novos.length || atualizados !== diferentes.length || inalterados !== iguais.length) {
+      log(`DIVERGÊNCIA: o esperado era ${novos.length} criado(s), ${diferentes.length} atualizado(s), ${iguais.length} inalterado(s).`);
+      ok = false;
+    }
+
+    // 6) Releitura: o que está no site tem de ser o que foi enviado
+    const relido = compararMes(dados, await cliente.lerMes(ano, mes));
+    if (relido.novos.length || relido.diferentes.length || relido.tituloMesDiferente) {
+      log('ERRO na releitura: o site não devolveu o que foi enviado.');
+      if (relido.novos.length) log(`  - dias ausentes: ${lista(relido.novos)}`);
+      relido.diferentes.forEach((d) => log(`  - dia ${d.dia}: ${d.campos.join(', ')}`));
+      if (relido.tituloMesDiferente) log('  - título da meta do mês diferente');
+      return false;
+    }
+    log(`Releitura conferida: ${relido.iguais.length} dia(s) iguais ao enviado.`);
+    return ok;
+  } catch (e) {
+    relatarErro(e, log);
+    return false;
+  }
 }
 
 async function principal() {
-  // Determina slug do mês: primeiro argumento posicional (não flag)
   const args = process.argv.slice(2);
   const slugMes = args.find((a) => !a.startsWith('--'));
-  if (!slugMes) {
-    console.error('[agenda] ERRO: Informe o mês. Ex.: node src/index.js julho-2026 --simular');
-    process.exitCode = 1;
-    return;
-  }
-
+  const desconhecidas = args.filter((a) => a.startsWith('--') && !FLAGS.includes(a));
   const executar = args.includes('--executar');
-  const simularFlag = args.includes('--simular');
-  if (executar && simularFlag) {
-    console.error('[agenda] ERRO: use apenas uma flag por vez (--simular OU --executar).');
-    process.exitCode = 1;
-    return;
-  }
-  const simular = !executar; // padrão: simulação (sem flag ou com --simular)
-  log(simular ? 'MODO SIMULAÇÃO (nada será gravado). Use --executar para gravar.' : 'MODO EXECUÇÃO (gravando no site).');
+  const sobrescrever = args.includes('--sobrescrever');
+  const log = (msg) => console.log(`[agenda] ${msg}`);
 
-  const cfg = await carregarConfig();
-  const cliente = criarCliente(cfg);
-
-  // 1) Autenticação
-  try {
-    const eu = await cliente.usuarioAtual();
-    log(`Autenticado como id=${eu.id} (${eu.slug}).`);
-  } catch (e) {
-    log(`ERRO de autenticação: ${e.message}`);
+  if (!slugMes || desconhecidas.length || (executar && args.includes('--simular')) || (sobrescrever && !executar)) {
+    console.error('[agenda] ERRO: uso — node src/index.js <mes-ano> [--executar [--sobrescrever]]. Ex.: node src/index.js novembro-2026');
     process.exitCode = 1;
     return;
   }
 
-  // 2) Dados
-  const arquivoDados = join(RAIZ, 'dados', `${slugMes}.json`);
-  let dados;
-  try {
-    dados = JSON.parse(await readFile(arquivoDados, 'utf8'));
-  } catch (e) {
-    log(`ERRO ao carregar arquivo "${slugMes}.json": ${e.message}`);
-    process.exitCode = 1;
-    return;
-  }
-
-  const { ano, mes, mesNome, metaMesTitulo, dias } = dados;
-  const errosMes = validarMes({ ano, mes, mesNome, metaMesTitulo });
-  if (errosMes.length) {
-    log('ERRO: metadados do mês inválidos:');
-    errosMes.forEach((m) => log(`  - ${m}`));
-    process.exitCode = 1;
-    return;
-  }
-
-  const invalidos = dias.flatMap((r) => validarRegistro(r).map((msg) => `dia ${r?.dia}: ${msg}`));
-  if (invalidos.length) {
-    log('ERRO: dados inválidos:');
-    invalidos.forEach((m) => log(`  - ${m}`));
-    process.exitCode = 1;
-    return;
-  }
-  log(`Carregados ${dias.length} dias de ${mesNome}/${ano}.`);
-
-  // 3) Idempotência: dias do mês já existentes
-  const existentes = await cliente.listarMes(ano, mes);
-  // mapa: dia -> { id, completo }
-  const mapaExistentes = new Map();
-  for (const p of existentes) {
-    const d = diaDaData(p.date);
-    if (d && d.mes === mes) {
-      mapaExistentes.set(d.dia, { id: p.id, completo: Number(p.meta?._dia_agenda) > 0 });
-    }
-  }
-  if (mapaExistentes.size) {
-    const completos = [...mapaExistentes.values()].filter((v) => v.completo).length;
-    const incompletos = mapaExistentes.size - completos;
-    log(`Já existem ${mapaExistentes.size} dia(s) de ${mesNome}: ${completos} completo(s), ${incompletos} incompleto(s).`);
-  }
-
-  // 4) Processar cada dia
-  const mesInfo = { ano, mes, mesNome, metaMesTitulo };
-  const resumo = { criados: [], completados: [], pulados: [], erros: [] };
-  for (const r of dias) {
-    const existente = mapaExistentes.get(r.dia);
-    const payload = montarPayload(r, mesInfo);
-
-    if (!existente) {
-      // Dia não existe: criar
-      if (simular) {
-        log(`dia ${r.dia}: [simulado] criaria "${payload.title}" date=${payload.date} _dia_agenda=${payload.meta._dia_agenda} titulo_dia="${payload.meta._titulo_meta_dia}".`);
-        resumo.criados.push(r.dia);
-        continue;
-      }
-      try {
-        const novo = await cliente.criar(payload);
-        const lido = await cliente.lerPost(novo.id);
-        const ok = lido.meta?._dia_agenda === payload.meta._dia_agenda
-                && lido.meta?._titulo_meta_dia === payload.meta._titulo_meta_dia
-                && lido.status === 'future';
-        if (!ok) throw new Error(`validação pós-criação falhou (id=${novo.id}, status=${lido.status})`);
-        resumo.criados.push(r.dia);
-        log(`dia ${r.dia}: criado e validado (id=${novo.id}).`);
-      } catch (e) {
-        resumo.erros.push({ dia: r.dia, msg: e.message });
-        log(`dia ${r.dia}: ERRO — ${e.message}`);
-      }
-    } else if (existente.completo) {
-      // Já completo: pular
-      resumo.pulados.push(r.dia);
-      log(`dia ${r.dia}: já completo, pulando.`);
-    } else {
-      // Existe mas incompleto: atualizar
-      if (simular) {
-        log(`dia ${r.dia}: [simulado] completaria id=${existente.id} _dia_agenda=${payload.meta._dia_agenda}.`);
-        resumo.completados.push(r.dia);
-        continue;
-      }
-      try {
-        const atualizado = await cliente.atualizar(existente.id, payload);
-        const lido = await cliente.lerPost(atualizado.id);
-        const ok = lido.meta?._dia_agenda === payload.meta._dia_agenda
-                && lido.meta?._titulo_meta_dia === payload.meta._titulo_meta_dia
-                && lido.status === 'future';
-        if (!ok) throw new Error(`validação pós-atualização falhou (id=${atualizado.id}, status=${lido.status})`);
-        resumo.completados.push(r.dia);
-        log(`dia ${r.dia}: completado (id=${atualizado.id}).`);
-      } catch (e) {
-        resumo.erros.push({ dia: r.dia, msg: e.message });
-        log(`dia ${r.dia}: ERRO — ${e.message}`);
-      }
-    }
-  }
-
-  // 5) Resumo
-  log('===== RESUMO =====');
-  log(`Criados${simular ? ' (simulados)' : ''}: ${resumo.criados.length} (${resumo.criados.join(', ') || '-'})`);
-  log(`Completados${simular ? ' (simulados)' : ''}: ${resumo.completados.length} (${resumo.completados.join(', ') || '-'})`);
-  log(`Pulados (já completos): ${resumo.pulados.length} (${resumo.pulados.join(', ') || '-'})`);
-  log(`Erros: ${resumo.erros.length}`);
-  resumo.erros.forEach((e) => log(`  - dia ${e.dia}: ${e.msg}`));
-  if (resumo.erros.length) process.exitCode = 1;
+  log(executar ? 'MODO EXECUÇÃO (gravando no site).' : 'MODO SIMULAÇÃO (nada será gravado).');
+  const cliente = criarCliente({
+    ...carregarConfig(),
+    aoReenviar: ({ erro, ms }) => log(`${erro} — nova tentativa em ${Math.round(ms / 1000)} s.`)
+  });
+  const ok = await publicarMes({ cliente, arquivoDados: join(RAIZ, 'dados', `${slugMes}.json`), executar, sobrescrever, log });
+  if (!ok) process.exitCode = 1;
 }
 
-principal().catch((e) => { console.error(`[agenda] FALHA: ${e.stack || e.message}`); process.exitCode = 1; });
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  principal().catch((e) => { console.error(`[agenda] FALHA: ${e.message}`); process.exitCode = 1; });
+}

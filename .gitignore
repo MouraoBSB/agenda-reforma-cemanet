@@ -1,5 +1,6 @@
 node_modules/
 config.local.json
+.env
 package-lock.json
 /Credenciais de Acesso/
 

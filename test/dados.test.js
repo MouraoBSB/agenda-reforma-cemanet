@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { validarRegistro } from '../src/montarPayload.js';
+import { validarRegistro, validarDocumento } from '../src/montarPayload.js';
 
 const PASTA_DADOS = join(dirname(fileURLToPath(import.meta.url)), '..', 'dados');
 const arquivos = readdirSync(PASTA_DADOS).filter((f) => f.endsWith('.json'));
@@ -30,6 +30,10 @@ for (const arquivo of arquivos) {
     for (const r of dados.dias) {
       assert.deepEqual(validarRegistro(r), [], `dia ${r.dia} inválido`);
     }
+  });
+
+  test(`${arquivo}: passa na validação completa da API (chaves, limites, texto puro, datas)`, () => {
+    assert.deepEqual(validarDocumento(dados), []);
   });
 
   test(`${arquivo}: títulos do dia estão em caixa normal (não tudo maiúsculo)`, () => {

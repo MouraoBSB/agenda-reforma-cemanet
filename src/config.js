@@ -1,30 +1,27 @@
 // Agenda Reforma Íntima — carregamento de configuração
 // Thiago Mourão — https://github.com/MouraoBSB — 2026-05-29
 
-import { readFile } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 const RAIZ = join(dirname(fileURLToPath(import.meta.url)), '..');
-const CAMINHO_PADRAO = join(RAIZ, 'config.local.json');
+const CAMINHO_ENV = join(RAIZ, '.env');
 
-export async function carregarConfig(caminho = CAMINHO_PADRAO) {
-  let bruto;
-  try {
-    bruto = await readFile(caminho, 'utf8');
-  } catch {
-    throw new Error(
-      `Arquivo de configuração não encontrado: ${caminho}. ` +
-      'Copie config.local.example.json para config.local.json e preencha as credenciais.'
-    );
+// Lê CEMA_API_URL e CEMA_API_CHAVE. arquivoEnv = null ignora o arquivo (usado nos testes).
+export function carregarConfig({ arquivoEnv = CAMINHO_ENV, env = process.env } = {}) {
+  if (arquivoEnv && existsSync(arquivoEnv)) process.loadEnvFile(arquivoEnv);
+
+  const url = (env.CEMA_API_URL ?? '').trim();
+  const chave = (env.CEMA_API_CHAVE ?? '').trim();
+  if (!url) {
+    throw new Error('Configuração inválida: CEMA_API_URL ausente. Copie .env.example para .env e preencha.');
   }
-  const cfg = JSON.parse(bruto);
-  for (const campo of ['baseUrl', 'usuario', 'senhaApp']) {
-    if (!cfg[campo] || typeof cfg[campo] !== 'string' || !cfg[campo].trim()) {
-      throw new Error(`Configuração inválida: campo "${campo}" ausente ou vazio em ${caminho}.`);
-    }
+  if (!/^https:\/\/[^\s/]+/i.test(url)) {
+    throw new Error('Configuração inválida: CEMA_API_URL deve começar com https://.');
   }
-  cfg.baseUrl = cfg.baseUrl.replace(/\/+$/, '');
-  cfg.authHeader = 'Basic ' + Buffer.from(`${cfg.usuario}:${cfg.senhaApp}`, 'utf8').toString('base64');
-  return cfg;
+  if (!chave) {
+    throw new Error('Configuração inválida: CEMA_API_CHAVE vazia. Cole a chave do agente no arquivo .env, na linha CEMA_API_CHAVE=.');
+  }
+  return { baseUrl: `${url.replace(/\/+$/, '')}/api/v1`, chave };
 }
